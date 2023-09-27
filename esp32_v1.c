@@ -44,6 +44,9 @@ void loop() {
   char postData[300];
   int statusCode = 0;
 
+  //Conversao da luz para 0 a 100%
+  // luz2 = map(luz, 0, 1023, 0)
+
   // Create a JSON payload for TagoIO
   snprintf(postData, sizeof(postData),
            "{\n\t\"temperature\": %.2f,\n\t\"humidity\": %.2f,\n\t\"light_level\": %d\n}",

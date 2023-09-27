@@ -1,85 +1,94 @@
-#include <Arduino.h>
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <Adafruit_Sensor.h>
+#include "Arduino.h"
+#include "WiFi.h"
+#include "HTTPClient.h"
 #include <DHT.h>
 
-#define DHTPIN 4 // DHT11 data pin
-#define DHTTYPE DHT11 // DHT sensor type
-#define LDRPIN 34 // LDR sensor pin
-
-DHT dht(DHTPIN, DHTTYPE);
-float temperature, humidity;
-int lightLevel;
-
-char ssid[] = "YourWiFiSSID"; // Replace with your Wi-Fi SSID
-char pass[] = "YourWiFiPassword"; // Replace with your Wi-Fi password
+char ssid[] = "Maia"; // Replace with your Wi-Fi SSID
+char pass[] = "Azul Amarelo"; // Replace with your Wi-Fi password
 char serverAddress[] = "https://api.tago.io/data"; // TagoIO API endpoint
 char contentHeader[] = "application/json"; // Content type for HTTP request
-char tokenHeader[] = "YourTagoIOToken"; // Your TagoIO token
+char tokenHeader[] = "b7bcc0a5-7114-4035-abbe-261e3891275a"; // Your TagoIO token
 HTTPClient client; // Initialize an instance of the HTTP client
 
-void setup() {
-  // Initialize serial communication
-  Serial.begin(115200);
+// DHT Pin, analog input
+#define DHT_PIN 27
+DHT dht(DHT_PIN, DHT11);
 
-  // Connect to Wi-Fi
+// Pin definition for LDR sensor
+#define LDR_PIN 14
+
+void setup() {
+  Serial.begin(9600);
+  init_wifi();
+  dht.begin();
+}
+
+void init_wifi() {
+  Serial.println("Connecting to WiFi");
   WiFi.begin(ssid, pass);
   while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
     delay(1000);
-    Serial.println("Connecting to WiFi...");
   }
-  Serial.println("Connected to WiFi");
-
-  // Initialize DHT sensor
-  dht.begin();
-
-  // Set LDR pin as an input
-  pinMode(LDRPIN, INPUT);
+  Serial.println("Connected");
+  Serial.print("My IP address is: ");
+  Serial.println(WiFi.localIP());
 }
 
 void loop() {
-  // Read temperature and humidity from DHT sensor
-  temperature = dht.readTemperature();
-  humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+  int ldrValue = analogRead(LDR_PIN);
 
-  // Read light level from LDR sensor
-  lightLevel = analogRead(LDRPIN);
+  Serial.println(ldrValue);
 
-  // Create a JSON payload with the sensor data
-  String jsonPayload = "{\"temperature\":" + String(temperature) +
-                       ",\"humidity\":" + String(humidity) +
-                       ",\"light\":" + String(lightLevel) + "}";
-
-  // Send data to TagoIO
-  if (sendDataToTagoIO(jsonPayload)) {
-    Serial.println("Data sent to TagoIO successfully");
-  } else {
-    Serial.println("Failed to send data to TagoIO");
-  }
-
-  // Wait for 5 seconds before sending the next data
-  delay(5000);
-}
-
-bool sendDataToTagoIO(String data) {
+// Temperatura
+  char anyData[30];
+  char postData[300];
+  char anyData1[30];
+  char bAny[30];
+  int statusCode = 0;
+  strcpy(postData, "{\n\t\"variable\": \"temperature\",\n\t\"value\": ");
+  dtostrf(temperature, 6, 2, anyData);
+  strncat(postData, anyData, 100);
+  strcpy(anyData1, ",\n\t\"unit\": \"C\"\n\t}\n");
+  strncat (postData, anyData1, 100);
+  Serial.println(postData);
   client.begin(serverAddress);
   client.addHeader("Content-Type", contentHeader);
-  client.addHeader("Token", tokenHeader);
+  client.addHeader("Device-Token", tokenHeader);
+  statusCode = client.POST(postData);
 
-  int httpResponseCode = client.POST(data);
+// Umidade
+  strcpy(postData, "{\n\t\"variable\": \"humidity\",\n\t\"value\": ");
+  dtostrf(humidity, 6, 2, anyData);
+  strncat(postData, anyData, 100);
+  strcpy(anyData1, ",\n\t\"unit\": \"C\"\n\t}\n");
+  strncat (postData, anyData1, 100);
+  Serial.println(postData);
+  client.begin(serverAddress);
+  client.addHeader("Content-Type", contentHeader);
+  client.addHeader("Device-Token", tokenHeader);
+  statusCode = client.POST(postData);
 
-  if (httpResponseCode > 0) {
-    String response = client.getString();
-    Serial.print("HTTP Response Code: ");
-    Serial.println(httpResponseCode);
-    Serial.println(response);
-    client.end();
-    return true;
-  } else {
-    Serial.print("HTTP Error: ");
-    Serial.println(httpResponseCode);
-    client.end();
-    return false;
-  }
+// Luz
+  strcpy(postData, "{\n\t\"variable\": \"light\",\n\t\"value\": ");
+  dtostrf(ldrValue, 6, 2, anyData);
+  strncat(postData, anyData, 100);
+  strcpy(anyData1, ",\n\t\"unit\": \"C\"\n\t}\n");
+  strncat (postData, anyData1, 100);
+  Serial.println(postData);
+  client.begin(serverAddress);
+  client.addHeader("Content-Type", contentHeader);
+  client.addHeader("Device-Token", tokenHeader);
+  statusCode = client.POST(postData);
+
+  delay(2000);
+  Serial.print("Status code: ");
+  Serial.println(statusCode);
+  Serial.println("End of POST to TagoIO");
+  Serial.println();
+
+  // Delay for 5 seconds before sending another reading
+  delay(5000);
 }
